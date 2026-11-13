@@ -27,7 +27,9 @@ function vaseGeometry() {
     const t = i / 80;
     points.push(new THREE.Vector2(7 + 5 * Math.sin(t * Math.PI) + 2 * Math.sin(t * Math.PI * 4), t * 48));
   }
-  return new THREE.LatheGeometry(points, 96);
+  const geometry = new THREE.LatheGeometry(points, 96);
+  geometry.rotateX(Math.PI / 2); // orient the lathe axis vertically along Z
+  return geometry;
 }
 function dragonGeometry() {
   const body = new THREE.SphereGeometry(9, 24, 18); body.scale(1.25, .7, .75); body.translate(0, 0, 13);
