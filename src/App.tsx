@@ -197,7 +197,8 @@ export default function App() {
     return () => { observer.disconnect(); api.dispose(); sceneApi.current=null; host.removeChild(renderer.domElement); };
   }, []);
 
-  useEffect(() => { (sceneApi.current as any)?.setSegments?.(segments); sceneApi.current?.setProgress(progress); }, [segments, progress]);\n  useEffect(() => { sceneApi.current?.setNozzleDiameter(settings.nozzle); }, [settings.nozzle]);
+  useEffect(() => { (sceneApi.current as any)?.setSegments?.(segments); sceneApi.current?.setProgress(progress); }, [segments, progress]);
+  useEffect(() => { sceneApi.current?.setNozzleDiameter(settings.nozzle); }, [settings.nozzle]);
   useEffect(() => { sceneApi.current?.setLayerView(layerView); }, [layerView]);
   useEffect(() => { if (model) prepareGeometry(model.geometry, model.color, model.english); }, [model, prepareGeometry]);
   useEffect(() => { if (!model || !segments.length) return; const timer = window.setTimeout(() => prepareGeometry(model.geometry, model.color, model.english), 250); return () => clearTimeout(timer); }, [settings.layerHeight, settings.infill, settings.nozzle]); // re-slice when layer, infill or nozzle geometry changes
@@ -249,7 +250,8 @@ export default function App() {
   const downloadPath = () => {
     const rows = ["; مسیرهای نمایشی — G-code تأییدشده برای دستگاه نیست", "; X Y Z F E"];
     segments.forEach(s => rows.push(`G1 X${s.b.x.toFixed(3)} Y${s.b.y.toFixed(3)} Z${s.b.z.toFixed(3)} F${settings.speed * 60} E1`));
-    const blob = new Blob([rows.join("\n")], {type:"text/plain"});
+    const blob = new Blob([rows.join("
+")], {type:"text/plain"});
     const url = URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="visual-toolpath-preview.txt"; a.click(); URL.revokeObjectURL(url);
   };
 
