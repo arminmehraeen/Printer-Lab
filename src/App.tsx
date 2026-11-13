@@ -159,7 +159,7 @@ export default function App() {
       setLayerView: value => { if (modelMesh) modelMesh.visible = !value; },
       setNozzleDiameter: value => { nozzle.scale.setScalar(value / .4); extrusionRadius = value; },
       fit: () => { camera.position.set(95,-120,100); controls.target.set(0,0,20); controls.update(); },
-      dispose: () => { cancelAnimationFrame(frame); controls.dispose(); renderer.dispose(); pathGeometry.dispose(); pathMaterial.dispose(); extrusionGeometry.dispose(); extrusionMaterial.dispose(); extrusionMesh.dispose(); modelMaterial.dispose(); }
+      dispose: () => { cancelAnimationFrame(frame); controls.dispose(); renderer.dispose(); pathGeometry.dispose(); pathMaterial.dispose(); extrusionGeometry.dispose(); extrusionMaterial.dispose(); modelMaterial.dispose(); }
     };
     sceneApi.current = api;
     const resize = () => { const w=host.clientWidth,h=host.clientHeight; camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h); };
