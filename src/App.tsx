@@ -250,8 +250,7 @@ export default function App() {
   const downloadPath = () => {
     const rows = ["; مسیرهای نمایشی — G-code تأییدشده برای دستگاه نیست", "; X Y Z F E"];
     segments.forEach(s => rows.push(`G1 X${s.b.x.toFixed(3)} Y${s.b.y.toFixed(3)} Z${s.b.z.toFixed(3)} F${settings.speed * 60} E1`));
-    const blob = new Blob([rows.join("
-")], {type:"text/plain"});
+    const blob = new Blob([rows.join("\n")], { type: "text/plain" });
     const url = URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="visual-toolpath-preview.txt"; a.click(); URL.revokeObjectURL(url);
   };
 
