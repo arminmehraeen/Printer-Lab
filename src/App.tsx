@@ -132,7 +132,7 @@ export default function App() {
     const sim = { progress: 0 };
     const api: SceneApi = {
       setModel: (g, color) => {
-        if (modelMesh) { scene.remove(modelMesh); modelMesh.geometry.dispose(); }
+        if (modelMesh) { scene.remove(modelMesh); modelMesh.geometry.dispose(); (modelMesh.material as THREE.Material).dispose(); }
         const mat = modelMaterial.clone(); mat.color.set(color); modelMesh = new THREE.Mesh(g.clone(), mat); modelMesh.castShadow = true; modelMesh.receiveShadow = true; scene.add(modelMesh);
         controls.target.set(0, 0, Math.max(10, (g.boundingBox?.max.z ?? 40) / 2)); controls.update();
       },
