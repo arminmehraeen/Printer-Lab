@@ -74,9 +74,12 @@ function pointInLoops(point: Point2, loops: Point2[][]): boolean {
 function clippedInfill(loops: Point2[][], z: number, layer: number, spacing: number, vertical: boolean): PrintSegment[] {
   const out: PrintSegment[] = [];
   if (!loops.length) return out;
-  const all = loops.flat();
-  const min = Math.min(...all.map(p => vertical ? p.x : p.y));
-  const max = Math.max(...all.map(p => vertical ? p.x : p.y));
+  let min = Infinity, max = -Infinity;
+  for (const loop of loops) for (const p of loop) {
+    const value = vertical ? p.x : p.y;
+    min = Math.min(min, value);
+    max = Math.max(max, value);
+  }
   const start = Math.ceil(min / spacing) * spacing + spacing * 0.5;
   for (let scan = start; scan < max; scan += spacing) {
     const hits: number[] = [];
