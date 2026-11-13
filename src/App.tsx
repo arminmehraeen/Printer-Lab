@@ -11,7 +11,7 @@ import { createSamples, type SampleModel } from "./engine/sampleModels";
 import { flattenSegments, sliceGeometry, type PrintSegment } from "./engine/slicer";
 
 type PrintSettings = { layerHeight: number; nozzle: number; filament: number; speed: number; infill: number; wallCount: number; nozzleTemp: number; bedTemp: number };
-type SceneApi = { setModel: (geometry: THREE.BufferGeometry, color: string) => void; setProgress: (value: number) => void; setLayerView: (value: boolean) => void; fit: () => void; dispose: () => void };
+type SceneApi = { setModel: (geometry: THREE.BufferGeometry, color: string) => void; setProgress: (value: number) => void; setLayerView: (value: boolean) => void; setNozzleDiameter: (value: number) => void; fit: () => void; dispose: () => void };
 
 const initialSettings: PrintSettings = { layerHeight: .2, nozzle: .4, filament: 1.75, speed: 50, infill: 20, wallCount: 2, nozzleTemp: 205, bedTemp: 60 };
 const fmt = (n: number, digits = 1) => new Intl.NumberFormat("fa-IR", { maximumFractionDigits: digits }).format(n);
@@ -70,7 +70,7 @@ export default function App() {
     setProgress(0); setElapsed(0); setPlaying(false);
     setMessage("در حال محاسبه مسیرهای لایه‌ای…");
     try {
-      const sliced = sliceGeometry(geometry, settings.layerHeight, settings.infill / 100);
+      const sliced = sliceGeometry(geometry, settings.layerHeight, settings.infill / 100, settings.nozzle);
       const flat = flattenSegments(sliced.layers);
       if (!flat.length) throw new Error("برای این هندسه مسیر قابل برشی پیدا نشد.");
       setLayers(sliced.layers); setSegments(flat);
@@ -82,7 +82,7 @@ export default function App() {
       setMessage("پردازش مدل ناموفق بود");
     }
     geometry.dispose();
-  }, [settings.layerHeight, settings.infill]);
+  }, [settings.layerHeight, settings.infill, settings.nozzle]);
 
   useEffect(() => {
     if (!viewportRef.current) return;
@@ -172,10 +172,10 @@ export default function App() {
     return () => { observer.disconnect(); api.dispose(); sceneApi.current=null; host.removeChild(renderer.domElement); };
   }, []);
 
-  useEffect(() => { (sceneApi.current as any)?.setSegments?.(segments); sceneApi.current?.setProgress(progress); }, [segments, progress]);
+  useEffect(() => { (sceneApi.current as any)?.setSegments?.(segments); sceneApi.current?.setProgress(progress); }, [segments, progress]);\n  useEffect(() => { sceneApi.current?.setNozzleDiameter(settings.nozzle); }, [settings.nozzle]);
   useEffect(() => { sceneApi.current?.setLayerView(layerView); }, [layerView]);
   useEffect(() => { if (model) prepareGeometry(model.geometry, model.color, model.english); }, [model, prepareGeometry]);
-  useEffect(() => { if (!model || !segments.length) return; const timer = window.setTimeout(() => prepareGeometry(model.geometry, model.color, model.english), 250); return () => clearTimeout(timer); }, [settings.layerHeight, settings.infill]); // re-slice only for geometry-affecting settings
+  useEffect(() => { if (!model || !segments.length) return; const timer = window.setTimeout(() => prepareGeometry(model.geometry, model.color, model.english), 250); return () => clearTimeout(timer); }, [settings.layerHeight, settings.infill, settings.nozzle]); // re-slice when layer, infill or nozzle geometry changes
 
   useEffect(() => {
     let raf = 0, previous = 0, ui = 0;
@@ -274,7 +274,7 @@ export default function App() {
             <Setting label="دمای نازل" value={settings.nozzleTemp} min={180} max={250} step={5} unit="°C" onChange={v=>updateSetting("nozzleTemp",v)}/>
             <Setting label="دمای صفحه" value={settings.bedTemp} min={0} max={100} step={5} unit="°C" onChange={v=>updateSetting("bedTemp",v)}/>
           </div>}
-          <div className="setting-note"><Zap size={13}/> تغییر ارتفاع لایه و تراکم، مسیرها را دوباره محاسبه می‌کند؛ قطر نازل و فیلامنت و دما فعلاً پارامترهای نمایشی هستند.</div>
+          <div className="setting-note"><Zap size={13}/> تغییر ارتفاع لایه و تراکم، مسیرها را دوباره محاسبه می‌کند؛ قطر نازل بر ضخامت مسیر شبیه‌سازی و فاصله خطوط داخلی اثر می‌گذارد؛ قطر فیلامنت و دما هنوز در محاسبات فیزیکی مدل نشده‌اند.</div>
         </div>
         <div className="panel-section stats-section"><div className="section-title"><div><Activity size={17}/><strong>آمار فرایند</strong></div><span className="estimate-tag">تخمینی</span></div>
           <div className="stat-grid"><Stat icon={<Layers3/>} label="تعداد لایه‌ها" value={fmt(layers.length,0)}/><Stat icon={<Clock3/>} label="زمان باقی‌مانده" value={formatTime(remaining)}/><Stat icon={<Thermometer/>} label="دمای نازل" value={`${fmt(settings.nozzleTemp,0)}°`}/><Stat icon={<Gauge/>} label="حرکت مسیر" value={fmt(total,0)}/></div>
