@@ -294,7 +294,7 @@ export default function App() {
           {showLibrary ? <div className="sample-grid">{samples.map(s=><button className="sample-card" key={s.id} onClick={()=>chooseSample(s)}><div className="sample-preview"><Box size={25}/></div><strong>{s.name}</strong><small>{s.english}</small></button>)}</div> : <div className="model-card"><div className="model-preview"><Box size={35}/><span>STL / 3D</span></div><div className="model-info"><strong>{model?.name ?? modelName}</strong><small>{model?.description ?? "مدل بارگذاری‌شده"}</small><button onClick={()=>setShowLibrary(true)}>انتخاب مدل نمونه <ChevronDown size={13}/></button></div></div>}
           <div className="dimensions"><div><small>عرض X</small><strong>{fmt(stats.size.x)} <i>mm</i></strong></div><div><small>عمق Y</small><strong>{fmt(stats.size.y)} <i>mm</i></strong></div><div><small>ارتفاع Z</small><strong>{fmt(stats.size.z)} <i>mm</i></strong></div></div>
         </div>
-        <div className="panel-section"><div className="section-title"><div><SlidersHorizontal size={17}/><strong>پارامترهای چاپ</strong></div><span className="parameter-count">۸ پارامتر فعال</span><button onClick={()=>setShowSettings(v=>!v)}><Settings2 size={15}/></button></div>
+        <div className="panel-section"><div className="section-title"><div><SlidersHorizontal size={17}/><strong>پارامترهای چاپ</strong></div><span className="parameter-count">۸ پارامتر قابل تنظیم</span><button onClick={()=>setShowSettings(v=>!v)}><Settings2 size={15}/></button></div>
           {showSettings && <div className="settings-list">
             <Setting label="ارتفاع لایه" detail="Layer Height" description="ضخامت هر لایه در محور Z؛ مقدار کمتر جزئیات سطح را بیشتر و تعداد لایه‌ها و زمان پردازش را افزایش می‌دهد." value={settings.layerHeight} min={.08} max={.4} step={.02} unit="mm" onChange={v=>updateSetting("layerHeight",v)}/>
             <Setting label="قطر نازل" detail="Nozzle Diameter" description="عرض اسمی خروجی نازل؛ در فاصله خطوط داخلی و سطح مقطع تقریبی رشته اکستروژن استفاده می‌شود." value={settings.nozzle} min={.2} max={1} step={.05} unit="mm" onChange={v=>updateSetting("nozzle",v)}/>
@@ -308,9 +308,9 @@ export default function App() {
           <div className="setting-note"><Zap size={13}/> تغییر ارتفاع لایه، قطر نازل، تعداد دیواره و تراکم داخلی مسیرها را دوباره می‌سازد. سرعت، قطر فیلامنت و ابعاد مسیر در برآورد زمان و مصرف ماده استفاده می‌شوند. دماها فعلاً نقاط تنظیم هستند، نه شبیه‌سازی حرارتی.</div>
         </div>
         <div className="panel-section stats-section"><div className="section-title"><div><Activity size={17}/><strong>آمار فرایند</strong></div><span className="estimate-tag">تخمینی</span></div>
-          <div className="stat-grid"><Stat icon={<Layers3/>} label="تعداد لایه‌ها" value={fmt(layers.length,0)}/><Stat icon={<Clock3/>} label="زمان باقی‌مانده" value={formatTime(remaining)}/><Stat icon={<Thermometer/>} label="دمای نازل" value={`${fmt(settings.nozzleTemp,0)}°`}/><Stat icon={<Gauge/>} label="حرکت مسیر" value={fmt(total,0)}/></div>
+          <div className="stat-grid"><Stat icon={<Layers3/>} label="تعداد لایه‌ها" value={fmt(layers.length,0)}/><Stat icon={<Clock3/>} label="زمان باقی‌مانده" value={formatTime(remaining)}/><Stat icon={<Thermometer/>} label="دمای هدف نازل" value={`${fmt(settings.nozzleTemp,0)}°C`}/><Stat icon={<Thermometer/>} label="دمای هدف صفحه" value={`${fmt(settings.bedTemp,0)}°C`}/></div>
           <div className="material-row"><span>طول کل مسیر اکستروژن</span><strong>{fmt(totalPathLength/1000,2)} m</strong></div>
-          <div className="material-row"><span>فیلامنت مصرفی (تخمینی)</span><strong>{fmt(filamentLength/1000,2)} m · {fmt(filamentWeight,1)} g</strong></div>
+          <div className="material-row"><span>مصرف فیلامنت (تخمین PLA)</span><strong>{fmt(filamentLength/1000,2)} m · {fmt(filamentWeight,1)} g</strong></div>
           <div className="material-row"><span>حجم هندسی مدل</span><strong>{fmt(stats.volume/1000,2)} cm³</strong></div>
           <div className="material-row"><span>زمان سپری‌شده</span><strong>{formatTime(elapsed)}</strong></div>
         </div>
