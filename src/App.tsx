@@ -11,7 +11,7 @@ import { createSamples, type SampleModel } from "./engine/sampleModels";
 import { flattenSegments, sliceGeometry, type PrintSegment } from "./engine/slicer";
 
 type PrintSettings = { layerHeight: number; nozzle: number; filament: number; speed: number; infill: number; wallCount: number; nozzleTemp: number; bedTemp: number };
-type SceneApi = { setModel: (geometry: THREE.BufferGeometry, color: string) => void; setProgress: (value: number) => void; fit: () => void; dispose: () => void };
+type SceneApi = { setModel: (geometry: THREE.BufferGeometry, color: string) => void; setProgress: (value: number) => void; setLayerView: (value: boolean) => void; fit: () => void; dispose: () => void };
 
 const initialSettings: PrintSettings = { layerHeight: .2, nozzle: .4, filament: 1.75, speed: 50, infill: 20, wallCount: 2, nozzleTemp: 205, bedTemp: 60 };
 const fmt = (n: number, digits = 1) => new Intl.NumberFormat("fa-IR", { maximumFractionDigits: digits }).format(n);
@@ -146,6 +146,7 @@ export default function App() {
           nozzleGroup.position.z += 4.5;
         }
       },
+      setLayerView: value => { if (modelMesh) modelMesh.visible = !value; },
       fit: () => { camera.position.set(95,-120,100); controls.target.set(0,0,20); controls.update(); },
       dispose: () => { cancelAnimationFrame(frame); controls.dispose(); renderer.dispose(); pathGeometry.dispose(); pathMaterial.dispose(); modelMaterial.dispose(); }
     };
@@ -171,6 +172,7 @@ export default function App() {
   }, []);
 
   useEffect(() => { (sceneApi.current as any)?.setSegments?.(segments); sceneApi.current?.setProgress(progress); }, [segments, progress]);
+  useEffect(() => { sceneApi.current?.setLayerView(layerView); }, [layerView]);
   useEffect(() => { if (model) prepareGeometry(model.geometry, model.color, model.english); }, [model, prepareGeometry]);
   useEffect(() => { if (!model || !segments.length) return; const timer = window.setTimeout(() => prepareGeometry(model.geometry, model.color, model.english), 250); return () => clearTimeout(timer); }, [settings.layerHeight, settings.infill]); // re-slice only for geometry-affecting settings
 
@@ -264,6 +266,8 @@ export default function App() {
           {showSettings && <div className="settings-list">
             <Setting label="ارتفاع لایه" value={settings.layerHeight} min={.08} max={.4} step={.02} unit="mm" onChange={v=>updateSetting("layerHeight",v)}/>
             <Setting label="قطر نازل" value={settings.nozzle} min={.2} max={1} step={.05} unit="mm" onChange={v=>updateSetting("nozzle",v)}/>
+            <Setting label="قطر فیلامنت" value={settings.filament} min={1.5} max={3} step={.05} unit="mm" onChange={v=>updateSetting("filament",v)}/>
+            <Setting label="تعداد دیواره" value={settings.wallCount} min={1} max={5} step={1} unit="خط" onChange={v=>updateSetting("wallCount",v)}/>
             <Setting label="سرعت چاپ" value={settings.speed} min={15} max={120} step={5} unit="mm/s" onChange={v=>updateSetting("speed",v)}/>
             <Setting label="تراکم Infill" value={settings.infill} min={0} max={80} step={5} unit="٪" onChange={v=>updateSetting("infill",v)}/>
             <Setting label="دمای نازل" value={settings.nozzleTemp} min={180} max={250} step={5} unit="°C" onChange={v=>updateSetting("nozzleTemp",v)}/>
