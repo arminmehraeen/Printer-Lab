@@ -124,7 +124,8 @@ export default function App() {
     let extrusionMesh = new THREE.InstancedMesh(extrusionGeometry, extrusionMaterial, 1);
     extrusionMesh.count = 0; extrusionMesh.frustumCulled = false; scene.add(extrusionMesh);
     const instance = new THREE.Object3D();
-    const up = new THREE.Vector3(0, 1, 0);\n    let extrusionRadius = .4;
+    const up = new THREE.Vector3(0, 1, 0);
+    let extrusionRadius = .4;
     const nozzleGroup = new THREE.Group();
     const nozzle = new THREE.Mesh(new THREE.ConeGeometry(2.4, 7, 6), new THREE.MeshStandardMaterial({ color: "#e5b96e", metalness: .8, roughness: .24 }));
     nozzle.rotation.x = -Math.PI / 2; nozzle.position.z = 0; nozzleGroup.add(nozzle);
@@ -174,7 +175,6 @@ export default function App() {
       segmentData = next;
       const coords: number[] = [];
       scene.remove(extrusionMesh);
-      extrusionMesh.dispose();
       extrusionMesh = new THREE.InstancedMesh(extrusionGeometry, extrusionMaterial, Math.max(1, next.length));
       extrusionMesh.count = 0; extrusionMesh.frustumCulled = false; scene.add(extrusionMesh);
       next.forEach((s, i) => {
