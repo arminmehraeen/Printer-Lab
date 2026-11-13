@@ -119,6 +119,12 @@ export default function App() {
     pathGeometry.setAttribute("position", new THREE.Float32BufferAttribute([], 3));
     const pathMaterial = new THREE.LineBasicMaterial({ color: "#48e7bb", transparent: true, opacity: .98 });
     const printed = new THREE.LineSegments(pathGeometry, pathMaterial); printed.frustumCulled = false; scene.add(printed);
+    const extrusionGeometry = new THREE.CylinderGeometry(.5, .5, 1, 7, 1, false);
+    const extrusionMaterial = new THREE.MeshStandardMaterial({ color: "#36cda5", roughness: .48, metalness: .04 });
+    let extrusionMesh = new THREE.InstancedMesh(extrusionGeometry, extrusionMaterial, 1);
+    extrusionMesh.count = 0; extrusionMesh.frustumCulled = false; scene.add(extrusionMesh);
+    const instance = new THREE.Object3D();
+    const up = new THREE.Vector3(0, 1, 0);
     const nozzleGroup = new THREE.Group();
     const nozzle = new THREE.Mesh(new THREE.ConeGeometry(2.4, 7, 6), new THREE.MeshStandardMaterial({ color: "#e5b96e", metalness: .8, roughness: .24 }));
     nozzle.rotation.x = -Math.PI / 2; nozzle.position.z = 0; nozzleGroup.add(nozzle);
@@ -139,7 +145,9 @@ export default function App() {
       setProgress: value => {
         sim.progress = value;
         const count = segmentData.length;
-        pathGeometry.setDrawRange(0, Math.floor(count * value) * 2);
+        const visible = Math.floor(count * value);
+        pathGeometry.setDrawRange(0, visible * 2);
+        extrusionMesh.count = visible;
         if (count) {
           const idx = Math.min(count - 1, Math.floor(value * count));
           const s = segmentData[idx]; const t = value >= 1 ? 1 : value * count - idx;
@@ -148,8 +156,9 @@ export default function App() {
         }
       },
       setLayerView: value => { if (modelMesh) modelMesh.visible = !value; },
+      setNozzleDiameter: value => { nozzle.scale.setScalar(value / .4); },
       fit: () => { camera.position.set(95,-120,100); controls.target.set(0,0,20); controls.update(); },
-      dispose: () => { cancelAnimationFrame(frame); controls.dispose(); renderer.dispose(); pathGeometry.dispose(); pathMaterial.dispose(); modelMaterial.dispose(); }
+      dispose: () => { cancelAnimationFrame(frame); controls.dispose(); renderer.dispose(); pathGeometry.dispose(); pathMaterial.dispose(); extrusionGeometry.dispose(); extrusionMaterial.dispose(); extrusionMesh.dispose(); modelMaterial.dispose(); }
     };
     sceneApi.current = api;
     const resize = () => { const w=host.clientWidth,h=host.clientHeight; camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h); };
@@ -164,7 +173,23 @@ export default function App() {
     const setSegmentsForScene = (next: PrintSegment[]) => {
       segmentData = next;
       const coords: number[] = [];
-      next.forEach(s => coords.push(s.a.x,s.a.y,s.a.z,s.b.x,s.b.y,s.b.z));
+      scene.remove(extrusionMesh);
+      extrusionMesh.dispose();
+      extrusionMesh = new THREE.InstancedMesh(extrusionGeometry, extrusionMaterial, Math.max(1, next.length));
+      extrusionMesh.count = 0; extrusionMesh.frustumCulled = false; scene.add(extrusionMesh);
+      next.forEach((s, i) => {
+        coords.push(s.a.x,s.a.y,s.a.z,s.b.x,s.b.y,s.b.z);
+        const direction = new THREE.Vector3().subVectors(s.b, s.a);
+        const length = direction.length();
+        if (length > 1e-6) {
+          instance.position.copy(s.a).add(s.b).multiplyScalar(.5);
+          instance.quaternion.setFromUnitVectors(up, direction.normalize());
+          instance.scale.set(.4, length, .4);
+          instance.updateMatrix();
+          extrusionMesh.setMatrixAt(i, instance.matrix);
+        }
+      });
+      extrusionMesh.instanceMatrix.needsUpdate = true;
       pathGeometry.setAttribute("position",new THREE.Float32BufferAttribute(coords,3));
       pathGeometry.computeBoundingSphere(); pathGeometry.setDrawRange(0,0);
     };
