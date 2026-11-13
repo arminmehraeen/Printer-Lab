@@ -15,7 +15,10 @@ export function sliceGeometry(source: THREE.BufferGeometry, layerHeight: number,
   const position = geometry.getAttribute("position");
   const minZ = bounds.min.z;
   const maxZ = bounds.max.z;
-  const totalLayers = Math.max(1, Math.ceil((maxZ - minZ) / layerHeight));
+  const requestedLayers = Math.max(1, Math.ceil((maxZ - minZ) / layerHeight));
+  if (position.count > 450_000) throw new Error("مدل بیش از ۱۵۰ هزار مثلث دارد؛ لطفاً فایل سبک‌تری انتخاب کنید.");
+  if (requestedLayers > 1200) throw new Error("تعداد لایه‌ها بیش از حد مجاز است؛ ارتفاع لایه را افزایش دهید.");
+  const totalLayers = requestedLayers;
   const layers: PrintSegment[][] = [];
   const v = (i: number) => new THREE.Vector3().fromBufferAttribute(position, i);
 
