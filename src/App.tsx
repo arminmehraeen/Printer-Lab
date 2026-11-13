@@ -124,7 +124,7 @@ export default function App() {
     let extrusionMesh = new THREE.InstancedMesh(extrusionGeometry, extrusionMaterial, 1);
     extrusionMesh.count = 0; extrusionMesh.frustumCulled = false; scene.add(extrusionMesh);
     const instance = new THREE.Object3D();
-    const up = new THREE.Vector3(0, 1, 0);
+    const up = new THREE.Vector3(0, 1, 0);\n    let extrusionRadius = .4;
     const nozzleGroup = new THREE.Group();
     const nozzle = new THREE.Mesh(new THREE.ConeGeometry(2.4, 7, 6), new THREE.MeshStandardMaterial({ color: "#e5b96e", metalness: .8, roughness: .24 }));
     nozzle.rotation.x = -Math.PI / 2; nozzle.position.z = 0; nozzleGroup.add(nozzle);
@@ -156,7 +156,7 @@ export default function App() {
         }
       },
       setLayerView: value => { if (modelMesh) modelMesh.visible = !value; },
-      setNozzleDiameter: value => { nozzle.scale.setScalar(value / .4); },
+      setNozzleDiameter: value => { nozzle.scale.setScalar(value / .4); extrusionRadius = value; },
       fit: () => { camera.position.set(95,-120,100); controls.target.set(0,0,20); controls.update(); },
       dispose: () => { cancelAnimationFrame(frame); controls.dispose(); renderer.dispose(); pathGeometry.dispose(); pathMaterial.dispose(); extrusionGeometry.dispose(); extrusionMaterial.dispose(); extrusionMesh.dispose(); modelMaterial.dispose(); }
     };
@@ -184,7 +184,7 @@ export default function App() {
         if (length > 1e-6) {
           instance.position.copy(s.a).add(s.b).multiplyScalar(.5);
           instance.quaternion.setFromUnitVectors(up, direction.normalize());
-          instance.scale.set(.4, length, .4);
+          instance.scale.set(extrusionRadius, length, extrusionRadius);
           instance.updateMatrix();
           extrusionMesh.setMatrixAt(i, instance.matrix);
         }
