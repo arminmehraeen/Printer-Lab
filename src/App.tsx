@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import {
-  Activity, Box, ChevronDown, CircleHelp, Clock3, Download, FileUp, Gauge,
+  Activity, Box, ChevronDown, ChevronLeft, CircleHelp, Clock3, Download, FileUp, Gauge,
   Layers3, Maximize2, Pause, Play, RotateCcw, Settings2, SlidersHorizontal,
   Thermometer, UploadCloud, X, Zap
 } from "lucide-react";
@@ -253,7 +253,7 @@ export default function App() {
             <button className="reset-btn" onClick={reset} title="شروع مجدد"><RotateCcw size={17}/></button>
             <button className="play-btn" onClick={togglePlay}>{playing?<Pause size={18} fill="currentColor"/>:<Play size={18} fill="currentColor"/>}{playing?"توقف موقت":progress>0&&progress<1?"ادامه چاپ":"شروع چاپ"}</button>
             <div className="speed-control"><Gauge size={16}/><select value={speed} onChange={e=>setSpeed(Number(e.target.value))}>{[.25,.5,1,2,4,8].map(v=><option key={v} value={v}>{v}x</option>)}</select><ChevronDown size={13}/></div>
-            <button className="step-btn" onClick={()=>{setPlaying(false);const p=Math.min(1,progress+1/Math.max(1,layers.length));setProgress(p);sceneApi.current?.setProgress(p);}}><Layers3 size={16}/> لایه بعد</button>
+            <button className="step-btn" onClick={()=>{setPlaying(false);const p=Math.max(0,progress-1/Math.max(1,layers.length));setProgress(p);sceneApi.current?.setProgress(p);}}><ChevronLeft size={15}/> لایه قبل</button><button className="step-btn" onClick={()=>{setPlaying(false);const p=Math.min(1,progress+1/Math.max(1,layers.length));setProgress(p);sceneApi.current?.setProgress(p);}}><Layers3 size={16}/> لایه بعد</button>
           </div>
         </div>
       </section>
@@ -274,7 +274,7 @@ export default function App() {
             <Setting label="دمای نازل" value={settings.nozzleTemp} min={180} max={250} step={5} unit="°C" onChange={v=>updateSetting("nozzleTemp",v)}/>
             <Setting label="دمای صفحه" value={settings.bedTemp} min={0} max={100} step={5} unit="°C" onChange={v=>updateSetting("bedTemp",v)}/>
           </div>}
-          <div className="setting-note"><Zap size={13}/> تغییر ارتفاع لایه و تراکم، مسیرها را دوباره محاسبه می‌کند.</div>
+          <div className="setting-note"><Zap size={13}/> تغییر ارتفاع لایه و تراکم، مسیرها را دوباره محاسبه می‌کند؛ قطر نازل و فیلامنت و دما فعلاً پارامترهای نمایشی هستند.</div>
         </div>
         <div className="panel-section stats-section"><div className="section-title"><div><Activity size={17}/><strong>آمار فرایند</strong></div><span className="estimate-tag">تخمینی</span></div>
           <div className="stat-grid"><Stat icon={<Layers3/>} label="تعداد لایه‌ها" value={fmt(layers.length,0)}/><Stat icon={<Clock3/>} label="زمان باقی‌مانده" value={formatTime(remaining)}/><Stat icon={<Thermometer/>} label="دمای نازل" value={`${fmt(settings.nozzleTemp,0)}°`}/><Stat icon={<Gauge/>} label="حرکت مسیر" value={fmt(total,0)}/></div>
