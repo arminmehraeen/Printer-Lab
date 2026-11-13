@@ -54,8 +54,13 @@ export default function App() {
   const [error, setError] = useState("");
   const [layerView, setLayerView] = useState(false);
   const total = segments.length;
+  const totalPathLength = useMemo(() => segments.reduce((sum, segment) => sum + segment.a.distanceTo(segment.b), 0), [segments]);
+  const extrusionVolume = totalPathLength * settings.nozzle * settings.layerHeight * 0.9;
+  const filamentArea = Math.PI * Math.pow(settings.filament / 2, 2);
+  const filamentLength = filamentArea > 0 ? extrusionVolume / filamentArea : 0;
+  const filamentWeight = extrusionVolume * 1.24 / 1000;
   const currentLayer = layers.length ? Math.min(layers.length, Math.floor(progress * layers.length) + (progress >= 1 ? 0 : 1)) : 0;
-  const remaining = total ? (total - Math.floor(progress * total)) / Math.max(1, settings.speed / 60 * speed) : 0;
+  const remaining = totalPathLength ? (1 - progress) * totalPathLength / Math.max(1, settings.speed * speed) : 0;
 
   const prepareGeometry = useCallback((source: THREE.BufferGeometry, color: string, name: string) => {
     const geometry = source.clone();
@@ -70,7 +75,7 @@ export default function App() {
     setProgress(0); setElapsed(0); setPlaying(false);
     setMessage("در حال محاسبه مسیرهای لایه‌ای…");
     try {
-      const sliced = sliceGeometry(geometry, settings.layerHeight, settings.infill / 100, settings.nozzle);
+      const sliced = sliceGeometry(geometry, settings.layerHeight, settings.infill / 100, settings.nozzle, settings.wallCount);
       const flat = flattenSegments(sliced.layers);
       if (!flat.length) throw new Error("برای این هندسه مسیر قابل برشی پیدا نشد.");
       setLayers(sliced.layers); setSegments(flat);
@@ -82,7 +87,7 @@ export default function App() {
       setMessage("پردازش مدل ناموفق بود");
     }
     geometry.dispose();
-  }, [settings.layerHeight, settings.infill, settings.nozzle]);
+  }, [settings.layerHeight, settings.infill, settings.nozzle, settings.wallCount]);
 
   useEffect(() => {
     if (!viewportRef.current) return;
@@ -201,7 +206,7 @@ export default function App() {
   useEffect(() => { sceneApi.current?.setNozzleDiameter(settings.nozzle); }, [settings.nozzle]);
   useEffect(() => { sceneApi.current?.setLayerView(layerView); }, [layerView]);
   useEffect(() => { if (model) prepareGeometry(model.geometry, model.color, model.english); }, [model, prepareGeometry]);
-  useEffect(() => { if (!model || !segments.length) return; const timer = window.setTimeout(() => prepareGeometry(model.geometry, model.color, model.english), 250); return () => clearTimeout(timer); }, [settings.layerHeight, settings.infill, settings.nozzle]); // re-slice when layer, infill or nozzle geometry changes
+  useEffect(() => { if (!model || !segments.length) return; const timer = window.setTimeout(() => prepareGeometry(model.geometry, model.color, model.english), 250); return () => clearTimeout(timer); }, [settings.layerHeight, settings.infill, settings.nozzle, settings.wallCount, model, prepareGeometry]);
 
   useEffect(() => {
     let raf = 0, previous = 0, ui = 0;
@@ -212,7 +217,7 @@ export default function App() {
       const dt = Math.min(.1, (now - previous) / 1000); previous = now;
       setElapsed(v => v + dt);
       setProgress(p => {
-        const next = Math.min(1, p + dt * settings.speed * speed / Math.max(1, total * .018));
+        const next = Math.min(1, p + dt * settings.speed * speed / Math.max(1, totalPathLength));
         sceneApi.current?.setProgress(next);
         if (next >= 1) { setPlaying(false); setMessage("چاپ شبیه‌سازی‌شده با موفقیت به پایان رسید"); }
         return next;
@@ -221,7 +226,7 @@ export default function App() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, total, settings.speed, speed]);
+  }, [playing, totalPathLength, settings.speed, speed]);
 
   const chooseSample = (sample: SampleModel) => { setModel(sample); setShowLibrary(false); };
   const loadFile = (file?: File) => {
@@ -258,7 +263,7 @@ export default function App() {
     {dragging && <div className="drop-overlay"><UploadCloud size={42}/><strong>فایل STL را اینجا رها کنید</strong><span>حداکثر حجم فایل: ۸۰ مگابایت</span></div>}
     <header className="topbar">
       <div className="brand"><div className="brand-mark"><Box size={22}/></div><div><strong>PRINTER<span>LAB</span></strong><small>3D PRINT SIMULATOR</small></div></div>
-      <div className="top-center"><span className="live-dot"/><span>محیط شبیه‌سازی</span><i/> <span className="muted">نسخه آزمایشی ۱.۰</span></div>
+      <div className="top-center"><span className="live-dot"/><span>محیط شبیه‌سازی</span><i/> <span className="muted">کنترل و تحلیل فرایند چاپ</span></div>
       <div className="top-actions"><button className="icon-button" title="راهنما" onClick={()=>setMessage("فایل STL را بکشید و رها کنید؛ سپس تنظیمات و شروع چاپ را انتخاب کنید.")}><CircleHelp size={18}/></button><button className="upload-button" onClick={()=>fileRef.current?.click()}><FileUp size={17}/> بارگذاری STL</button><input ref={fileRef} hidden type="file" accept=".stl,model/stl" onChange={e=>loadFile(e.target.files?.[0])}/></div>
     </header>
 
@@ -289,34 +294,35 @@ export default function App() {
           {showLibrary ? <div className="sample-grid">{samples.map(s=><button className="sample-card" key={s.id} onClick={()=>chooseSample(s)}><div className="sample-preview"><Box size={25}/></div><strong>{s.name}</strong><small>{s.english}</small></button>)}</div> : <div className="model-card"><div className="model-preview"><Box size={35}/><span>STL / 3D</span></div><div className="model-info"><strong>{model?.name ?? modelName}</strong><small>{model?.description ?? "مدل بارگذاری‌شده"}</small><button onClick={()=>setShowLibrary(true)}>انتخاب مدل نمونه <ChevronDown size={13}/></button></div></div>}
           <div className="dimensions"><div><small>عرض X</small><strong>{fmt(stats.size.x)} <i>mm</i></strong></div><div><small>عمق Y</small><strong>{fmt(stats.size.y)} <i>mm</i></strong></div><div><small>ارتفاع Z</small><strong>{fmt(stats.size.z)} <i>mm</i></strong></div></div>
         </div>
-        <div className="panel-section"><div className="section-title"><div><SlidersHorizontal size={17}/><strong>پارامترهای چاپ</strong></div><button onClick={()=>setShowSettings(v=>!v)}><Settings2 size={15}/></button></div>
+        <div className="panel-section"><div className="section-title"><div><SlidersHorizontal size={17}/><strong>پارامترهای چاپ</strong></div><span className="parameter-count">۸ پارامتر فعال</span><button onClick={()=>setShowSettings(v=>!v)}><Settings2 size={15}/></button></div>
           {showSettings && <div className="settings-list">
-            <Setting label="ارتفاع لایه" value={settings.layerHeight} min={.08} max={.4} step={.02} unit="mm" onChange={v=>updateSetting("layerHeight",v)}/>
-            <Setting label="قطر نازل" value={settings.nozzle} min={.2} max={1} step={.05} unit="mm" onChange={v=>updateSetting("nozzle",v)}/>
-            <Setting label="قطر فیلامنت" value={settings.filament} min={1.5} max={3} step={.05} unit="mm" onChange={v=>updateSetting("filament",v)}/>
-            <Setting label="تعداد دیواره" value={settings.wallCount} min={1} max={5} step={1} unit="خط" onChange={v=>updateSetting("wallCount",v)}/>
-            <Setting label="سرعت چاپ" value={settings.speed} min={15} max={120} step={5} unit="mm/s" onChange={v=>updateSetting("speed",v)}/>
-            <Setting label="تراکم Infill" value={settings.infill} min={0} max={80} step={5} unit="٪" onChange={v=>updateSetting("infill",v)}/>
-            <Setting label="دمای نازل" value={settings.nozzleTemp} min={180} max={250} step={5} unit="°C" onChange={v=>updateSetting("nozzleTemp",v)}/>
-            <Setting label="دمای صفحه" value={settings.bedTemp} min={0} max={100} step={5} unit="°C" onChange={v=>updateSetting("bedTemp",v)}/>
+            <Setting label="ارتفاع لایه" detail="Layer Height" description="ضخامت هر لایه در محور Z؛ مقدار کمتر جزئیات سطح را بیشتر و تعداد لایه‌ها و زمان پردازش را افزایش می‌دهد." value={settings.layerHeight} min={.08} max={.4} step={.02} unit="mm" onChange={v=>updateSetting("layerHeight",v)}/>
+            <Setting label="قطر نازل" detail="Nozzle Diameter" description="عرض اسمی خروجی نازل؛ در فاصله خطوط داخلی و سطح مقطع تقریبی رشته اکستروژن استفاده می‌شود." value={settings.nozzle} min={.2} max={1} step={.05} unit="mm" onChange={v=>updateSetting("nozzle",v)}/>
+            <Setting label="قطر فیلامنت" detail="Filament Diameter" description="قطر رشته ورودی؛ برای تبدیل حجم ماده تخمینی به طول فیلامنت مصرفی به کار می‌رود." value={settings.filament} min={1.5} max={3} step={.05} unit="mm" onChange={v=>updateSetting("filament",v)}/>
+            <Setting label="تعداد دیواره" detail="Wall Count" description="تعداد مسیرهای پیرامونی هر لایه؛ با افزایش آن، مسیرهای مرزی بیشتری در داخل پوسته ساخته می‌شود." value={settings.wallCount} min={1} max={5} step={1} unit="خط" onChange={v=>updateSetting("wallCount",v)}/>
+            <Setting label="سرعت چاپ" detail="Print Speed" description="سرعت حرکت هد در شبیه‌سازی؛ روی سرعت پخش مسیر و زمان باقی‌مانده اثر مستقیم دارد." value={settings.speed} min={15} max={120} step={5} unit="mm/s" onChange={v=>updateSetting("speed",v)}/>
+            <Setting label="تراکم داخلی" detail="Infill Density" description="درصد پرشدگی فضای داخلی؛ صفر یعنی بدون پرشدگی و مقدار بیشتر یعنی خطوط داخلی متراکم‌تر." value={settings.infill} min={0} max={80} step={5} unit="٪" onChange={v=>updateSetting("infill",v)}/>
+            <Setting label="دمای نازل" detail="Nozzle Temperature" description="دمای هدف برای اکسترودر؛ در این نسخه به‌عنوان مقدار تنظیمی نمایش داده می‌شود و شبیه‌سازی انتقال حرارت انجام نمی‌شود." value={settings.nozzleTemp} min={180} max={250} step={5} unit="°C" onChange={v=>updateSetting("nozzleTemp",v)}/>
+            <Setting label="دمای صفحه" detail="Bed Temperature" description="دمای هدف صفحه ساخت؛ برای ثبت تنظیمات فرایند استفاده می‌شود و مدل حرارتی واقعی صفحه در محاسبات وجود ندارد." value={settings.bedTemp} min={0} max={100} step={5} unit="°C" onChange={v=>updateSetting("bedTemp",v)}/>
           </div>}
-          <div className="setting-note"><Zap size={13}/> تغییر ارتفاع لایه و تراکم، مسیرها را دوباره محاسبه می‌کند؛ قطر نازل بر ضخامت مسیر شبیه‌سازی و فاصله خطوط داخلی اثر می‌گذارد؛ قطر فیلامنت و دما هنوز در محاسبات فیزیکی مدل نشده‌اند.</div>
+          <div className="setting-note"><Zap size={13}/> تغییر ارتفاع لایه، قطر نازل، تعداد دیواره و تراکم داخلی مسیرها را دوباره می‌سازد. سرعت، قطر فیلامنت و ابعاد مسیر در برآورد زمان و مصرف ماده استفاده می‌شوند. دماها فعلاً نقاط تنظیم هستند، نه شبیه‌سازی حرارتی.</div>
         </div>
         <div className="panel-section stats-section"><div className="section-title"><div><Activity size={17}/><strong>آمار فرایند</strong></div><span className="estimate-tag">تخمینی</span></div>
           <div className="stat-grid"><Stat icon={<Layers3/>} label="تعداد لایه‌ها" value={fmt(layers.length,0)}/><Stat icon={<Clock3/>} label="زمان باقی‌مانده" value={formatTime(remaining)}/><Stat icon={<Thermometer/>} label="دمای نازل" value={`${fmt(settings.nozzleTemp,0)}°`}/><Stat icon={<Gauge/>} label="حرکت مسیر" value={fmt(total,0)}/></div>
-          <div className="material-row"><span>حجم مدل</span><strong>{fmt(stats.volume/1000,2)} cm³</strong></div>
-          <div className="material-row"><span>وزن فیلامنت (تخمینی)</span><strong>{fmt(stats.volume*.00124,1)} g</strong></div>
+          <div className="material-row"><span>طول کل مسیر اکستروژن</span><strong>{fmt(totalPathLength/1000,2)} m</strong></div>
+          <div className="material-row"><span>فیلامنت مصرفی (تخمینی)</span><strong>{fmt(filamentLength/1000,2)} m · {fmt(filamentWeight,1)} g</strong></div>
+          <div className="material-row"><span>حجم هندسی مدل</span><strong>{fmt(stats.volume/1000,2)} cm³</strong></div>
           <div className="material-row"><span>زمان سپری‌شده</span><strong>{formatTime(elapsed)}</strong></div>
         </div>
         <div className="panel-status"><span className={playing?"live-dot":""}/><span>{message}</span></div>
       </aside>
     </div>
-    <footer className="app-footer"><span>PRINTER LAB <i>•</i> شبیه‌ساز تعاملی چاپ سه‌بعدی</span><span>پردازش محلی در مرورگر <b>●</b></span></footer>
+    <footer className="app-footer"><span>PRINTER LAB <i>•</i> شبیه‌ساز تعاملی چاپ سه‌بعدی</span><span className="creator-credit">Created by <strong>Armin Mehraein</strong></span><span>پردازش محلی در مرورگر <b>●</b></span></footer>
   </main>;
 }
 
-function Setting({label,value,min,max,step,unit,onChange}:{label:string;value:number;min:number;max:number;step:number;unit:string;onChange:(v:number)=>void}) {
-  return <div className="setting-row"><div className="setting-label"><label>{label}</label><strong>{fmt(value,2)} <small>{unit}</small></strong></div><input type="range" min={min} max={max} step={step} value={value} onChange={e=>onChange(Number(e.target.value))}/></div>;
+function Setting({label,detail,description,value,min,max,step,unit,onChange}:{label:string;detail:string;description:string;value:number;min:number;max:number;step:number;unit:string;onChange:(v:number)=>void}) {
+  return <div className="setting-row"><div className="setting-label"><label>{label}<small className="setting-detail">{detail}</small></label><strong>{fmt(value,2)} <small>{unit}</small></strong></div><input aria-label={label} type="range" min={min} max={max} step={step} value={value} onChange={e=>onChange(Number(e.target.value))}/><p className="setting-description">{description}</p></div>;
 }
 function Stat({icon,label,value}:{icon:ReactNode;label:string;value:string}) {
   return <div className="stat-card"><div className="stat-icon">{icon}</div><div><small>{label}</small><strong>{value}</strong></div></div>;
