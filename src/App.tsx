@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
@@ -116,13 +116,14 @@ export default function App() {
     const modelMaterial = new THREE.MeshPhysicalMaterial({ color: "#56d6b0", metalness: .12, roughness: .31, clearcoat: .35, transparent: true, opacity: .32, side: THREE.DoubleSide });
     let modelMesh: THREE.Mesh | null = null;
     const pathGeometry = new THREE.BufferGeometry();
+    pathGeometry.setAttribute("position", new THREE.Float32BufferAttribute([], 3));
     const pathMaterial = new THREE.LineBasicMaterial({ color: "#48e7bb", transparent: true, opacity: .98 });
     const printed = new THREE.LineSegments(pathGeometry, pathMaterial); printed.frustumCulled = false; scene.add(printed);
     const nozzleGroup = new THREE.Group();
     const nozzle = new THREE.Mesh(new THREE.ConeGeometry(2.4, 7, 6), new THREE.MeshStandardMaterial({ color: "#e5b96e", metalness: .8, roughness: .24 }));
-    nozzle.rotation.x = Math.PI; nozzle.position.z = 0; nozzleGroup.add(nozzle);
+    nozzle.rotation.x = -Math.PI / 2; nozzle.position.z = 0; nozzleGroup.add(nozzle);
     const neck = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.1, 7, 12), new THREE.MeshStandardMaterial({ color: "#73817f", metalness: .85, roughness: .25 }));
-    neck.position.z = 6; nozzleGroup.add(neck); scene.add(nozzleGroup);
+    neck.rotation.x = Math.PI / 2; neck.position.z = 6; nozzleGroup.add(neck); scene.add(nozzleGroup);
     const headRail = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-58,0,145),new THREE.Vector3(58,0,145)]),new THREE.LineBasicMaterial({color:"#596c69"})); scene.add(headRail);
 
     let segmentData: PrintSegment[] = [];
@@ -219,7 +220,7 @@ export default function App() {
   const updateSetting = (key: keyof PrintSettings, value: number) => setSettings(s => ({ ...s, [key]: value }));
   const reset = () => { setPlaying(false); setProgress(0); setElapsed(0); sceneApi.current?.setProgress(0); setMessage("شبیه‌سازی از ابتدا آماده است"); };
   const togglePlay = () => { if (progress >= 1) reset(); else { setPlaying(v => !v); setMessage(playing ? "شبیه‌سازی متوقف شد" : "چاپ در حال اجراست"); } };
-  const onDrop = (e: React.DragEvent) => { e.preventDefault(); setDragging(false); loadFile(e.dataTransfer.files[0]); };
+  const onDrop = (e: DragEvent) => { e.preventDefault(); setDragging(false); loadFile(e.dataTransfer.files[0]); };
   const downloadPath = () => {
     const rows = ["; مسیرهای نمایشی — G-code تأییدشده برای دستگاه نیست", "; X Y Z F E"];
     segments.forEach(s => rows.push(`G1 X${s.b.x.toFixed(3)} Y${s.b.y.toFixed(3)} Z${s.b.z.toFixed(3)} F${settings.speed * 60} E1`));
@@ -246,7 +247,7 @@ export default function App() {
         <div className="scene-footer"><div><span className="legend-dot model-dot"/> مدل سه‌بعدی <span className="legend-dot path-dot"/> مسیر اکستروژن <span className="legend-dot nozzle-dot"/> نازل</div><button onClick={downloadPath} disabled={!segments.length}><Download size={14}/> خروجی مسیر نمایشی</button></div>
         <div className="timeline-panel">
           <div className="timeline-head"><div><span className="eyebrow">PRINT PROGRESS</span><strong>پیشرفت شبیه‌سازی</strong></div><strong className="progress-number">{fmt(progress*100,0)}<small>٪</small></strong></div>
-          <input className="progress-slider" type="range" min="0" max="1000" value={Math.round(progress*1000)} onChange={e=>{setPlaying(false);const p=Number(e.target.value)/1000;setProgress(p);sceneApi.current?.setProgress(p);}} style={{"--progress":`${progress*100}%`} as React.CSSProperties}/>
+          <input className="progress-slider" type="range" min="0" max="1000" value={Math.round(progress*1000)} onChange={e=>{setPlaying(false);const p=Number(e.target.value)/1000;setProgress(p);sceneApi.current?.setProgress(p);}} style={{"--progress":`${progress*100}%`} as CSSProperties}/>
           <div className="timeline-meta"><span>شروع</span><span>لایه {fmt(currentLayer,0)} از {fmt(layers.length,0)}</span><span>پایان</span></div>
           <div className="transport">
             <button className="reset-btn" onClick={reset} title="شروع مجدد"><RotateCcw size={17}/></button>
@@ -291,6 +292,6 @@ export default function App() {
 function Setting({label,value,min,max,step,unit,onChange}:{label:string;value:number;min:number;max:number;step:number;unit:string;onChange:(v:number)=>void}) {
   return <div className="setting-row"><div className="setting-label"><label>{label}</label><strong>{fmt(value,2)} <small>{unit}</small></strong></div><input type="range" min={min} max={max} step={step} value={value} onChange={e=>onChange(Number(e.target.value))}/></div>;
 }
-function Stat({icon,label,value}:{icon:React.ReactNode;label:string;value:string}) {
+function Stat({icon,label,value}:{icon:ReactNode;label:string;value:string}) {
   return <div className="stat-card"><div className="stat-icon">{icon}</div><div><small>{label}</small><strong>{value}</strong></div></div>;
 }
