@@ -58,6 +58,47 @@ function stitchContours(raw: Edge[], tolerance: number): Point2[][] {
   return loops;
 }
 
+function offsetLoop(loop: Point2[], distance: number): Point2[] {
+  if (loop.length < 3 || distance <= 0) return loop;
+  let area = 0;
+  for (let i = 0; i < loop.length; i++) {
+    const a = loop[i], b = loop[(i + 1) % loop.length];
+    area += a.x * b.y - b.x * a.y;
+  }
+  const orientation = area >= 0 ? 1 : -1;
+  const result: Point2[] = [];
+  const cross = (a: Point2, b: Point2) => a.x * b.y - a.y * b.x;
+  for (let i = 0; i < loop.length; i++) {
+    const prev = loop[(i + loop.length - 1) % loop.length];
+    const curr = loop[i];
+    const next = loop[(i + 1) % loop.length];
+    const e1 = { x: curr.x - prev.x, y: curr.y - prev.y };
+    const e2 = { x: next.x - curr.x, y: next.y - curr.y };
+    const l1 = Math.hypot(e1.x, e1.y), l2 = Math.hypot(e2.x, e2.y);
+    if (l1 < 1e-8 || l2 < 1e-8) continue;
+    const n1 = { x: -e1.y / l1 * orientation, y: e1.x / l1 * orientation };
+    const n2 = { x: -e2.y / l2 * orientation, y: e2.x / l2 * orientation };
+    const p1 = { x: curr.x + n1.x * distance, y: curr.y + n1.y * distance };
+    const p2 = { x: curr.x + n2.x * distance, y: curr.y + n2.y * distance };
+    const denominator = cross(e1, e2);
+    if (Math.abs(denominator) < 1e-8) {
+      const nx = n1.x + n2.x, ny = n1.y + n2.y;
+      const nl = Math.hypot(nx, ny) || 1;
+      result.push({ x: curr.x + nx / nl * distance, y: curr.y + ny / nl * distance });
+      continue;
+    }
+    const t = cross({ x: p2.x - p1.x, y: p2.y - p1.y }, e2) / denominator;
+    const hit = { x: p1.x + e1.x * t, y: p1.y + e1.y * t };
+    const miter = Math.hypot(hit.x - curr.x, hit.y - curr.y);
+    if (!Number.isFinite(miter) || miter > distance * 4) {
+      const nx = n1.x + n2.x, ny = n1.y + n2.y;
+      const nl = Math.hypot(nx, ny) || 1;
+      result.push({ x: curr.x + nx / nl * distance, y: curr.y + ny / nl * distance });
+    } else result.push(hit);
+  }
+  return result.length >= 3 ? result : [];
+}
+
 function pointInLoops(point: Point2, loops: Point2[][]): boolean {
   let inside = false;
   for (const loop of loops) {
@@ -118,7 +159,8 @@ export function sliceGeometry(
   source: THREE.BufferGeometry,
   layerHeight: number,
   infillDensity: number,
-  nozzleWidth = 0.4
+  nozzleWidth = 0.4,
+  wallCount = 2
 ): SliceResult {
   if (!(layerHeight > 0) || !(nozzleWidth > 0)) throw new Error("تنظیمات ارتفاع لایه یا قطر نازل معتبر نیست.");
   const geometry = source.index ? source.toNonIndexed() : source.clone();
@@ -189,14 +231,19 @@ export function sliceGeometry(
     delete (layers[layer] as any).__edges;
     const loops = stitchContours(edges, tolerance);
     const paths: PrintSegment[] = [];
+    const safeWalls = Math.max(1, Math.min(5, Math.round(wallCount)));
     for (const loop of loops) {
-      for (let i = 0; i < loop.length; i++) {
-        const a = loop[i], b = loop[(i + 1) % loop.length];
-        paths.push({ a: new THREE.Vector3(a.x, a.y, z), b: new THREE.Vector3(b.x, b.y, z), layer, extrusion: true });
+      for (let wall = 0; wall < safeWalls; wall++) {
+        const perimeter = offsetLoop(loop, nozzleWidth * (wall + 0.5));
+        for (let i = 0; i < perimeter.length; i++) {
+          const a = perimeter[i], b = perimeter[(i + 1) % perimeter.length];
+          paths.push({ a: new THREE.Vector3(a.x, a.y, z), b: new THREE.Vector3(b.x, b.y, z), layer, extrusion: true });
+        }
       }
     }
     if (density > 0 && loops.length) {
-      paths.push(...clippedInfill(loops, z, layer, spacing, layer % 2 === 1));
+      const infillLoops = loops.map(loop => offsetLoop(loop, nozzleWidth * (safeWalls + 0.5))).filter(loop => loop.length >= 3);
+      paths.push(...clippedInfill(infillLoops, z, layer, spacing, layer % 2 === 1));
     }
     layers[layer] = paths;
   }
